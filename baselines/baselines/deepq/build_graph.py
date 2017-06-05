@@ -69,9 +69,10 @@ The functions in this file can are used to create the following functions:
 """
 import tensorflow as tf
 import baselines.common.tf_util as U
+from cleverhans.attacks_tf import fgm
 
 
-def build_act(make_obs_ph, q_func, num_actions, scope="deepq", reuse=None):
+def build_act(make_obs_ph, q_func, num_actions, attack=None, scope="deepq", reuse=None):
     """Creates the act function:
 
     Parameters
@@ -109,6 +110,14 @@ def build_act(make_obs_ph, q_func, num_actions, scope="deepq", reuse=None):
         eps = tf.get_variable("eps", (), initializer=tf.constant_initializer(0))
 
         q_values = q_func(observations_ph.get(), num_actions, scope="q_func")
+
+        if attack != None:
+            q_softmax = tf.nn.softmax(q_values)
+            if attack == 'fgsm':
+            # XXX Check max val is 255 or 1
+            adv_observations = fgm(observations_ph.get(), q_softmax, y=None, eps=0.3,
+                                clip_min=0, clip_max=255)
+
         deterministic_actions = tf.argmax(q_values, axis=1)
 
         batch_size = tf.shape(observations_ph.get())[0]
