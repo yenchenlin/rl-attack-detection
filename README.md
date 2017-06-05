@@ -15,15 +15,15 @@ cd baselines
 
 **Experiment action suggestion**
 
-Normal agent:
+normal agent:
 ```
 python -m baselines.deepq.experiments.atari.enjoy --model-dir /tmp/models/model-you-want --env game-you-chose --dueling
 ```
-FGSM attacked agent:
+fgsm attacked agent:
 ```
 python -m baselines.deepq.experiments.atari.enjoy --model-dir /tmp/models/model-you-want --env game-you-chose --dueling --attack FGSM
 ```
-Carlini attacked agent:
+carlini attacked agent:
 ```
 python -m baselines.deepq.experiments.atari.enjoy --model-dir /tmp/models/model-you-want --env game-you-chose --dueling --attack FGSM
 ```
