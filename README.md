@@ -14,6 +14,7 @@ cd baselines
 
 
 **Experiment action suggestion**
+
 Normal agent:
 ```
 python -m baselines.deepq.experiments.atari.enjoy --model-dir /tmp/models/model-you-want --env game-you-chose --dueling
