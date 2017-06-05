@@ -29,6 +29,7 @@ python -m baselines.deepq.experiments.atari.enjoy --model-dir /tmp/models/model-
 ```
 
 **Download pretrained models**
+
 There's a variety of models to choose from. You can list them all by running:
 ```
 python -m baselines.deepq.experiments.atari.download_model
