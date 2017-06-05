@@ -42,7 +42,7 @@ def play(env, act, stochastic, video_path):
         env, video_path, enabled=video_path is not None)
     obs = env.reset()
     while True:
-        env.unwrapped.render()
+        #env.unwrapped.render()
         video_recorder.capture_frame()
         action = act(np.array(obs)[None], stochastic=stochastic)[0]
         obs, rew, done, info = env.step(action)
