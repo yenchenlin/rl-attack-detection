@@ -111,14 +111,16 @@ def build_act(make_obs_ph, q_func, num_actions, attack=None, scope="deepq", reus
 
         q_values = q_func(observations_ph.get(), num_actions, scope="q_func")
 
-        if attack != None:
+        if attack == None:
+            deterministic_actions = tf.argmax(q_values, axis=1)
+        else:
             q_softmax = tf.nn.softmax(q_values)
             if attack == 'fgsm':
                 # XXX Check max val is 255 or 1
                 adv_observations = fgm(observations_ph.get(), q_softmax, y=None, eps=0.3, 
                         clip_min=0, clip_max=255)
-
-        deterministic_actions = tf.argmax(q_values, axis=1)
+                adv_q_values = q_func(adv_observations, num_actions, scope="q_func", reuse=True)
+                deterministic_actions = tf.argmax(adv_q_values, axis=1)
 
         batch_size = tf.shape(observations_ph.get())[0]
         random_actions = tf.random_uniform(tf.stack([batch_size]), minval=0, maxval=num_actions, dtype=tf.int64)
