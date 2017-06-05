@@ -5,6 +5,7 @@
 - baselines
 
 ### DQN
+first change directory:
 ```
 cd baselines
 ```
