@@ -24,6 +24,7 @@ def parse_args():
     parser.add_argument("--video", type=str, default=None, help="Path to mp4 file where the video of first episode will be recorded.")
     boolean_flag(parser, "stochastic", default=True, help="whether or not to use stochastic actions according to models eps value")
     boolean_flag(parser, "dueling", default=False, help="whether or not to use dueling model")
+    parser.add_argument("--attack", type=str, default=None, help="Method to attack the model.")
 
     return parser.parse_args()
 
@@ -65,6 +66,7 @@ if __name__ == '__main__':
         act = deepq.build_act(
             make_obs_ph=lambda name: U.Uint8Input(env.observation_space.shape, name=name),
             q_func=dueling_model if args.dueling else model,
-            num_actions=env.action_space.n)
+            num_actions=env.action_space.n, 
+            attack=args.attack)
         U.load_state(os.path.join(args.model_dir, "saved"))
         play(env, act, args.stochastic, args.video)
