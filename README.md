@@ -21,11 +21,11 @@ python -m baselines.deepq.experiments.atari.enjoy --model-dir /tmp/models/model-
 ```
 fgsm attacked agent:
 ```
-python -m baselines.deepq.experiments.atari.enjoy --model-dir /tmp/models/model-you-want --env game-you-chose --dueling --attack FGSM
+python -m baselines.deepq.experiments.atari.enjoy --model-dir /tmp/models/model-you-want --env game-you-chose --dueling --attack fgsm
 ```
 carlini attacked agent:
 ```
-python -m baselines.deepq.experiments.atari.enjoy --model-dir /tmp/models/model-you-want --env game-you-chose --dueling --attack FGSM
+python -m baselines.deepq.experiments.atari.enjoy --model-dir /tmp/models/model-you-want --env game-you-chose --dueling --attack carlini
 ```
 
 **Download pretrained models**
