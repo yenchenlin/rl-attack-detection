@@ -2,7 +2,7 @@
 
 ### Dependencies
 - cleverhans
-- baseli
+- baselines
 
 ### DQN
 ```
