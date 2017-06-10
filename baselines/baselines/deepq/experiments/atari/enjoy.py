@@ -14,6 +14,7 @@ from baselines.common.misc_util import (
 )
 from baselines.common.atari_wrappers_deprecated import wrap_dqn
 from baselines.deepq.experiments.atari.model import model, dueling_model
+from baselines.deepq.li_attack import CarliniLi
 
 
 def parse_args():
@@ -36,17 +37,37 @@ def make_env(game_name):
     return env
 
 
-def play(env, act, stochastic, video_path):
+def play(env, act, stochastic, video_path, attack=None, q_func=None):
     num_episodes = 0
+    step = 0
     video_recorder = None
     video_recorder = VideoRecorder(
         env, video_path, enabled=video_path is not None)
     obs = env.reset()
+
+    if attack == 'carliniL2':
+        sess = U.get_session()
+        carliniLi = CarliniLi(sess, q_func, env.action_space.n)
+
     while True:
         #env.unwrapped.render()
         video_recorder.capture_frame()
-        action = act(np.array(obs)[None], stochastic=stochastic)[0]
-        obs, rew, done, info = env.step(action)
+
+        if attack == 'carliniL2':
+            step += 1
+            obs = (np.array(obs) - 127.5) / 255.0
+            adv_obs = carliniLi.attack_single(obs, [0., 0., 0., 0., 1., 0.])
+            print(np.min(adv_obs))
+            adv_obs = np.array(adv_obs) * 255.0 + 127.5
+            action = act(np.array(adv_obs), stochastic=stochastic)[0]
+            obs, rew, done, info = env.step(action)
+        else:
+            action = act(np.array(obs)[None], stochastic=stochastic)[0]
+            obs, rew, done, info = env.step(action)
+
+        print("Step: {}".format(step))
+        print("Action: {}".format(action))
+
         if done:
             obs = env.reset()
         if len(info["rewards"]) > num_episodes:
@@ -57,16 +78,18 @@ def play(env, act, stochastic, video_path):
                 video_recorder.enabled = False
             print(info["rewards"][-1])
             num_episodes = len(info["rewards"])
+            step = 0
 
 
 if __name__ == '__main__':
     with U.make_session(4) as sess:
         args = parse_args()
         env = make_env(args.env)
+        q_func = dueling_model if args.dueling else model
         act = deepq.build_act(
             make_obs_ph=lambda name: U.Uint8Input(env.observation_space.shape, name=name),
-            q_func=dueling_model if args.dueling else model,
+            q_func=q_func,
             num_actions=env.action_space.n, 
             attack=args.attack)
         U.load_state(os.path.join(args.model_dir, "saved"))
-        play(env, act, args.stochastic, args.video)
+        play(env, act, args.stochastic, args.video, args.attack, q_func=q_func)
