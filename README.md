@@ -5,8 +5,7 @@
 
 **Change directory**
 ```
-cd rl-adversarial-attack-detection
-cd baselines
+cd rl-adversarial-attack-detection/baselines
 ```
 
 **Download pretrained models**
