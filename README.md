@@ -3,8 +3,7 @@
 ### Dependencies
 - baselines
 
-### DQN
-first change directory:
+**Change directory**
 ```
 cd rl-adversarial-attack-detection
 cd baselines
