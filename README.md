@@ -3,6 +3,11 @@
 ### Dependencies
 - baselines
 
+**Clone repo**
+```
+git clone git@github.com:yenchenlin/rl-adversarial-attack-detection.git
+```
+
 **Change directory**
 ```
 cd rl-adversarial-attack-detection/baselines
