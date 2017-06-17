@@ -107,7 +107,7 @@ def play(env, acts, stochastic, video_path, attack=None, q_func=None):
 
             # Defensive planning
             if step >= 4:
-                pred_obs.append(test_gen(sess, old_obs, action, np.array(obs), mean, model,
+                pred_obs.append(test_gen(sess, old_obs, adv_action, np.array(obs), mean, model,
                     env.action_space.n, step))
                 if len(pred_obs) == 4:
                     pred_act = act(np.stack(pred_obs, axis=2)[None], stochastic=stochastic)[0]
@@ -120,11 +120,7 @@ def play(env, acts, stochastic, video_path, attack=None, q_func=None):
                     if pred_act != action:
                         fp += 1
 
-        #print("Step: {}".format(step))
-        #print("Action: {}".format(action))
-
             old_obs = np.array(obs)
-            #obs, rew, done, info = env.step(adv_action)
             obs, rew, done, info = env.step(adv_action)
             """
             if step >= 4:
