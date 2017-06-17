@@ -57,7 +57,10 @@ def test_gen(sess, obs, act, gt, mean, model, n_actions, step):
     return pred[0, :, :, 0]
 
 
-def play(env, act, stochastic, video_path, attack=None, q_func=None):
+def play(env, acts, stochastic, video_path, attack=None, q_func=None):
+    act = acts[0]
+    adv_act = acts[1]
+
     num_episodes = 0
     step = 0
     video_recorder = None
@@ -67,13 +70,14 @@ def play(env, act, stochastic, video_path, attack=None, q_func=None):
     pred_obs = deque(maxlen=4)
     sess = U.get_session()
 
-    counter = 0.0
-    n_steps = 200
+    detection = 0.0
+    attack_success = 0.0
+    fp = 0.0
 
     if attack != None:
         from baselines.deepq.prediction.tfacvp.model import ActionConditionalVideoPredictionModel
         gen_dir = '/home/yclin/Workspace/rl-adversarial-attack-detection/baselines/baselines/deepq/prediction'
-        model_path = os.path.join(gen_dir, 'models/PongNoFrameskip-v4-gray-model/train/model.ckpt-207049')
+        model_path = os.path.join(gen_dir, 'models/PongNoFrameskip-v4-gray-model/train/model.ckpt-306490')
         mean_path = os.path.join(gen_dir, 'PongNoFrameskip-v4/mean.npy')
 
         mean = np.load(mean_path)
@@ -97,7 +101,9 @@ def play(env, act, stochastic, video_path, attack=None, q_func=None):
             obs, rew, done, info = env.step(action)
         else:
             # np.array(obs)[None]: (1, 84, 84, 4)
+            adv_action = adv_act(np.array(obs)[None], stochastic=stochastic)[0]
             action = act(np.array(obs)[None], stochastic=stochastic)[0]
+            #print(adv_action == action)
 
             # Defensive planning
             if step >= 4:
@@ -107,20 +113,32 @@ def play(env, act, stochastic, video_path, attack=None, q_func=None):
                     pred_act = act(np.stack(pred_obs, axis=2)[None], stochastic=stochastic)[0]
                     #print("Step: {}".format(step))
                     #print(pred_act, action, pred_act == action)
-                    if pred_act == action:
-                        counter += 1
+                    if adv_action != action:
+                        attack_success += 1
+                        if pred_act != adv_action:
+                            detection += 1
+                    if pred_act != action:
+                        fp += 1
 
         #print("Step: {}".format(step))
         #print("Action: {}".format(action))
 
             old_obs = np.array(obs)
-            obs, rew, done, info = env.step(action)
-            if step == n_steps:
-                print(counter/n_steps)
-                exit()
-
+            #obs, rew, done, info = env.step(adv_action)
+            obs, rew, done, info = env.step(adv_action)
+            """
+            if step >= 4:
+                if len(pred_obs) == 4:
+                    obs, rew, done, info = env.step(pred_act)
+            else:
+                obs, rew, done, info = env.step(action)
+            """
         if done:
             obs = env.reset()
+            print("Attack success:", attack_success/step)
+            print("Detection:", detection/attack_success)
+            print("False Positive:", fp/step)
+
         if len(info["rewards"]) > num_episodes:
             if len(info["rewards"]) == 1 and video_recorder.enabled:
                 # save video of first episode
@@ -130,6 +148,8 @@ def play(env, act, stochastic, video_path, attack=None, q_func=None):
             print(info["rewards"][-1])
             num_episodes = len(info["rewards"])
             step = 0
+            exit()
+
 
 
 if __name__ == '__main__':
@@ -137,10 +157,10 @@ if __name__ == '__main__':
         args = parse_args()
         env = make_env(args.env)
         q_func = dueling_model if args.dueling else model
-        act = deepq.build_act(
+        act, adv_act = deepq.build_act(
             make_obs_ph=lambda name: U.Uint8Input(env.observation_space.shape, name=name),
             q_func=q_func,
             num_actions=env.action_space.n,
             attack=args.attack)
         U.load_state(os.path.join(args.model_dir, "saved"))
-        play(env, act, args.stochastic, args.video, args.attack, q_func=q_func)
+        play(env, [act, adv_act], args.stochastic, args.video, args.attack, q_func=q_func)

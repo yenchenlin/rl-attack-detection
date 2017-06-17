@@ -108,14 +108,14 @@ def build_act(make_obs_ph, q_func, num_actions, attack=None, scope="deepq", reus
         stochastic_ph = tf.placeholder(tf.bool, (), name="stochastic")
         update_eps_ph = tf.placeholder(tf.float32, (), name="update_eps")
 
-        eps = tf.get_variable("eps", (), initializer=tf.constant_initializer(0))
+        eps = tf.get_variable("eps", (), initializer=tf.constant_initializer(-1))
 
         q_values = q_func(observations_ph.get(), num_actions, scope="q_func")
 
         if attack == 'fgsm':
             q_softmax = tf.nn.softmax(q_values)
             # XXX Check max val is 255 or 1
-            adv_observations = fgm(observations_ph.get(), q_softmax, y=None, eps=0.3)
+            adv_observations = fgm(observations_ph.get(), q_softmax, y=None, eps=0.004)
             adv_q_values = q_func(adv_observations, num_actions, scope="q_func", reuse=True)
             deterministic_actions = tf.argmax(adv_q_values, axis=1)
         else:
@@ -130,10 +130,16 @@ def build_act(make_obs_ph, q_func, num_actions, attack=None, scope="deepq", reus
         update_eps_expr = eps.assign(tf.cond(update_eps_ph >= 0, lambda: update_eps_ph, lambda: eps))
 
         act = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph],
+                         outputs=tf.argmax(q_values, axis=1),
+                         givens={update_eps_ph: -1.0, stochastic_ph: True},
+                         updates=[update_eps_expr])
+
+        adv_act = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph],
                          outputs=output_actions,
                          givens={update_eps_ph: -1.0, stochastic_ph: True},
                          updates=[update_eps_expr])
-        return act
+
+        return act, adv_act
 
 
 def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=None, gamma=1.0, double_q=True, scope="deepq", reuse=None):
