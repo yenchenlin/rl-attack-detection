@@ -2,6 +2,9 @@ import argparse
 import gym
 import os
 import numpy as np
+import tensorflow as tf
+import cv2
+from collections import deque
 
 from gym.monitoring import VideoRecorder
 
@@ -37,6 +40,23 @@ def make_env(game_name):
     return env
 
 
+def test_gen(sess, obs, act, gt, mean, model, n_actions, step):
+    obs = obs - mean[None]
+    obs = obs * 1/255.0
+    onehot_act = np.zeros((1, n_actions))
+    onehot_act[0, act] = 1
+
+    pred = model.predict(sess, obs, onehot_act)[0]
+
+    pred = pred * 255.0
+    pred = pred + mean[None]
+    #print(gt[:, :, -1].shape, pred.shape)
+    #print(np.sum(gt[:, :, -1][:, :, np.newaxis] - pred[0, :, :, :]))
+    #cv2.imwrite('/home/yclin/viz/gt_{}.png'.format(step), gt[:, :, -1][:, :, np.newaxis])
+    #cv2.imwrite('/home/yclin/viz/pred_{}.png'.format(step), pred[0, :, :, :])
+    return pred[0, :, :, 0]
+
+
 def play(env, act, stochastic, video_path, attack=None, q_func=None):
     num_episodes = 0
     step = 0
@@ -44,17 +64,31 @@ def play(env, act, stochastic, video_path, attack=None, q_func=None):
     video_recorder = VideoRecorder(
         env, video_path, enabled=video_path is not None)
     obs = env.reset()
+    pred_obs = deque(maxlen=4)
+    sess = U.get_session()
+
+    counter = 0.0
+    n_steps = 200
+
+    if attack != None:
+        from baselines.deepq.prediction.tfacvp.model import ActionConditionalVideoPredictionModel
+        gen_dir = '/home/yclin/Workspace/rl-adversarial-attack-detection/baselines/baselines/deepq/prediction'
+        model_path = os.path.join(gen_dir, 'models/PongNoFrameskip-v4-gray-model/train/model.ckpt-207049')
+        mean_path = os.path.join(gen_dir, 'PongNoFrameskip-v4/mean.npy')
+
+        mean = np.load(mean_path)
+        with tf.variable_scope('G'):
+            model = ActionConditionalVideoPredictionModel(num_act=env.action_space.n, num_channel=1, is_train=False)
+            model.restore(sess, model_path, 'G')
 
     if attack == 'carliniL2':
-        sess = U.get_session()
         carliniLi = CarliniLi(sess, q_func, env.action_space.n)
 
     while True:
         #env.unwrapped.render()
         video_recorder.capture_frame()
-
+        step += 1
         if attack == 'carliniL2':
-            step += 1
             obs = (np.array(obs) - 127.5) / 255.0
             adv_obs = carliniLi.attack_single(obs, [0., 0., 0., 0., 1., 0.])
             print(np.min(adv_obs))
@@ -62,11 +96,28 @@ def play(env, act, stochastic, video_path, attack=None, q_func=None):
             action = act(np.array(adv_obs), stochastic=stochastic)[0]
             obs, rew, done, info = env.step(action)
         else:
+            # np.array(obs)[None]: (1, 84, 84, 4)
             action = act(np.array(obs)[None], stochastic=stochastic)[0]
-            obs, rew, done, info = env.step(action)
 
-        print("Step: {}".format(step))
-        print("Action: {}".format(action))
+            # Defensive planning
+            if step >= 4:
+                pred_obs.append(test_gen(sess, old_obs, action, np.array(obs), mean, model,
+                    env.action_space.n, step))
+                if len(pred_obs) == 4:
+                    pred_act = act(np.stack(pred_obs, axis=2)[None], stochastic=stochastic)[0]
+                    #print("Step: {}".format(step))
+                    #print(pred_act, action, pred_act == action)
+                    if pred_act == action:
+                        counter += 1
+
+        #print("Step: {}".format(step))
+        #print("Action: {}".format(action))
+
+            old_obs = np.array(obs)
+            obs, rew, done, info = env.step(action)
+            if step == n_steps:
+                print(counter/n_steps)
+                exit()
 
         if done:
             obs = env.reset()
@@ -89,7 +140,7 @@ if __name__ == '__main__':
         act = deepq.build_act(
             make_obs_ph=lambda name: U.Uint8Input(env.observation_space.shape, name=name),
             q_func=q_func,
-            num_actions=env.action_space.n, 
+            num_actions=env.action_space.n,
             attack=args.attack)
         U.load_state(os.path.join(args.model_dir, "saved"))
         play(env, act, args.stochastic, args.video, args.attack, q_func=q_func)
