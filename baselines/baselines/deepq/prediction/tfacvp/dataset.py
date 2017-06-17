@@ -9,7 +9,7 @@ from tfacvp.util import *
 
 class Dataset(object):
     def __init__(self, directory, num_act, mean_path, num_threads=1, capacity=1e5, batch_size=32,
-                scale=(1.0/255.0), s_t_shape=[84, 84, 12], x_t_1_shape=[84, 84, 3], colorspace='rgb'):
+                scale=(1.0/255.0), s_t_shape=[84, 84, 4], x_t_1_shape=[84, 84, 1], colorspace='gray'):
         self.scale = scale
         self.s_t_shape = s_t_shape
         self.x_t_1_shape = x_t_1_shape
