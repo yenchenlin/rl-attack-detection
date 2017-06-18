@@ -77,7 +77,7 @@ def play(env, acts, stochastic, video_path, attack=None, q_func=None):
     if attack != None:
         from baselines.deepq.prediction.tfacvp.model import ActionConditionalVideoPredictionModel
         gen_dir = '/home/yclin/Workspace/rl-adversarial-attack-detection/baselines/baselines/deepq/prediction'
-        model_path = os.path.join(gen_dir, 'models/PongNoFrameskip-v4-gray-model/train/model.ckpt-306490')
+        model_path = os.path.join(gen_dir, 'models/PongNoFrameskip-v4-gray-model/train/model.ckpt-575899')
         mean_path = os.path.join(gen_dir, 'PongNoFrameskip-v4/mean.npy')
 
         mean = np.load(mean_path)
@@ -107,7 +107,7 @@ def play(env, acts, stochastic, video_path, attack=None, q_func=None):
 
             # Defensive planning
             if step >= 4:
-                pred_obs.append(test_gen(sess, old_obs, adv_action, np.array(obs), mean, model,
+                pred_obs.append(test_gen(sess, old_obs, old_action, np.array(obs), mean, model,
                     env.action_space.n, step))
                 if len(pred_obs) == 4:
                     pred_act = act(np.stack(pred_obs, axis=2)[None], stochastic=stochastic)[0]
@@ -121,6 +121,7 @@ def play(env, acts, stochastic, video_path, attack=None, q_func=None):
                         fp += 1
 
             old_obs = np.array(obs)
+            old_action = adv_action
             obs, rew, done, info = env.step(adv_action)
             """
             if step >= 4:
