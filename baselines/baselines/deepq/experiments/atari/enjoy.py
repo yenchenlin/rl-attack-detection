@@ -74,10 +74,13 @@ def play(env, acts, stochastic, video_path, attack=None, q_func=None):
     attack_success = 0.0
     fp = 0.0
 
+    detect_pred_adv_diff = []
+    fp_pred_true_diff = []
+
     if attack != None:
         from baselines.deepq.prediction.tfacvp.model import ActionConditionalVideoPredictionModel
         gen_dir = '/home/yclin/Workspace/rl-adversarial-attack-detection/baselines/baselines/deepq/prediction'
-        model_path = os.path.join(gen_dir, 'models/PongNoFrameskip-v4-gray-model/train/model.ckpt-575899')
+        model_path = os.path.join(gen_dir, 'models/PongNoFrameskip-v4-gray-model/train/model.ckpt-623321')
         mean_path = os.path.join(gen_dir, 'PongNoFrameskip-v4/mean.npy')
 
         mean = np.load(mean_path)
@@ -101,8 +104,10 @@ def play(env, acts, stochastic, video_path, attack=None, q_func=None):
             obs, rew, done, info = env.step(action)
         else:
             # np.array(obs)[None]: (1, 84, 84, 4)
-            adv_action = adv_act(np.array(obs)[None], stochastic=stochastic)[0]
-            action = act(np.array(obs)[None], stochastic=stochastic)[0]
+            adv_q_values = adv_act(np.array(obs)[None], stochastic=stochastic)[0]
+            adv_action = np.argmax(adv_q_values)
+            q_values = act(np.array(obs)[None], stochastic=stochastic)[0]
+            action = np.argmax(q_values)
             #print(adv_action == action)
 
             # Defensive planning
@@ -110,15 +115,18 @@ def play(env, acts, stochastic, video_path, attack=None, q_func=None):
                 pred_obs.append(test_gen(sess, old_obs, old_action, np.array(obs), mean, model,
                     env.action_space.n, step))
                 if len(pred_obs) == 4:
-                    pred_act = act(np.stack(pred_obs, axis=2)[None], stochastic=stochastic)[0]
+                    pred_q_values = act(np.stack(pred_obs, axis=2)[None], stochastic=stochastic)[0]
+                    pred_act = np.argmax(pred_q_values)
                     #print("Step: {}".format(step))
                     #print(pred_act, action, pred_act == action)
                     if adv_action != action:
                         attack_success += 1
-                        if pred_act != adv_action:
+                        if pred_act != adv_action and np.sum(np.abs(pred_q_values - adv_q_values)) > 0.3:
                             detection += 1
-                    if pred_act != action:
+                            detect_pred_adv_diff.append(np.sum(np.abs(pred_q_values - adv_q_values)))
+                    if pred_act != action and np.sum(np.abs(pred_q_values - q_values)) > 0.3:
                         fp += 1
+                        fp_pred_true_diff.append(np.sum(np.abs(pred_q_values - q_values)))
 
             old_obs = np.array(obs)
             old_action = adv_action
@@ -133,8 +141,19 @@ def play(env, acts, stochastic, video_path, attack=None, q_func=None):
         if done:
             obs = env.reset()
             print("Attack success:", attack_success/step)
-            print("Detection:", detection/attack_success)
+            print("Detection:", detection/ (attack_success + 0.001))
             print("False Positive:", fp/step)
+
+            fp_pred_true_diff = np.array(fp_pred_true_diff)
+            print("False Positive Q Diff Max:", np.max(fp_pred_true_diff))
+            print("False Positive Q Diff Min:", np.min(fp_pred_true_diff))
+            print("False Positive Q Diff Avg:", np.mean(fp_pred_true_diff))
+
+            detect_pred_adv_diff = np.array(detect_pred_adv_diff)
+            print("Detect Q Diff Max:", np.max(detect_pred_adv_diff))
+            print("Detect Positive Q Diff Min:", np.min(detect_pred_adv_diff))
+            print("Detect Positive Q Diff Avg:", np.mean(detect_pred_adv_diff))
+
 
         if len(info["rewards"]) > num_episodes:
             if len(info["rewards"]) == 1 and video_recorder.enabled:
