@@ -80,7 +80,7 @@ def play(env, acts, stochastic, video_path, attack=None, q_func=None):
     if attack != None:
         from baselines.deepq.prediction.tfacvp.model import ActionConditionalVideoPredictionModel
         gen_dir = '/home/yclin/Workspace/rl-adversarial-attack-detection/baselines/baselines/deepq/prediction'
-        model_path = os.path.join(gen_dir, 'models/PongNoFrameskip-v4-gray-model/train/model.ckpt-623321')
+        model_path = os.path.join(gen_dir, 'models/PongNoFrameskip-v4-gray-model/train/model.ckpt-1491000')
         mean_path = os.path.join(gen_dir, 'PongNoFrameskip-v4/mean.npy')
 
         mean = np.load(mean_path)
@@ -122,9 +122,11 @@ def play(env, acts, stochastic, video_path, attack=None, q_func=None):
                     if adv_action != action:
                         attack_success += 1
                         if pred_act != adv_action and np.sum(np.abs(pred_q_values - adv_q_values)) > 0.3:
+                        #if pred_act != adv_action:
                             detection += 1
                             detect_pred_adv_diff.append(np.sum(np.abs(pred_q_values - adv_q_values)))
                     if pred_act != action and np.sum(np.abs(pred_q_values - q_values)) > 0.3:
+                    #if pred_act != action:
                         fp += 1
                         fp_pred_true_diff.append(np.sum(np.abs(pred_q_values - q_values)))
 
