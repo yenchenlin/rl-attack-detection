@@ -130,12 +130,12 @@ def build_act(make_obs_ph, q_func, num_actions, attack=None, scope="deepq", reus
         update_eps_expr = eps.assign(tf.cond(update_eps_ph >= 0, lambda: update_eps_ph, lambda: eps))
 
         act = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph],
-                         outputs=tf.argmax(q_values, axis=1),
+                         outputs=q_values,
                          givens={update_eps_ph: -1.0, stochastic_ph: True},
                          updates=[update_eps_expr])
 
         adv_act = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph],
-                         outputs=output_actions,
+                         outputs=adv_q_values,
                          givens={update_eps_ph: -1.0, stochastic_ph: True},
                          updates=[update_eps_expr])
 
