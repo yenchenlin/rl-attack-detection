@@ -59,7 +59,8 @@ def test_gen(sess, obs, act, gt, mean, model, n_actions, step):
 
 def play(env, acts, stochastic, video_path, attack=None, q_func=None):
     act = acts[0]
-    adv_act = acts[1]
+    if attack != None:
+        adv_act = acts[1]
 
     num_episodes = 0
     step = 0
@@ -102,7 +103,7 @@ def play(env, acts, stochastic, video_path, attack=None, q_func=None):
             adv_obs = np.array(adv_obs) * 255.0 + 127.5
             action = act(np.array(adv_obs), stochastic=stochastic)[0]
             obs, rew, done, info = env.step(action)
-        else:
+        elif attack == 'fgsm':
             # np.array(obs)[None]: (1, 84, 84, 4)
             adv_q_values = adv_act(np.array(obs)[None], stochastic=stochastic)[0]
             adv_action = np.argmax(adv_q_values)
@@ -129,34 +130,17 @@ def play(env, acts, stochastic, video_path, attack=None, q_func=None):
                     #if pred_act != action:
                         fp += 1
                         fp_pred_true_diff.append(np.sum(np.abs(pred_q_values - q_values)))
-
             old_obs = np.array(obs)
             old_action = adv_action
             obs, rew, done, info = env.step(adv_action)
-            """
-            if step >= 4:
-                if len(pred_obs) == 4:
-                    obs, rew, done, info = env.step(pred_act)
-            else:
-                obs, rew, done, info = env.step(action)
-            """
-        if done:
+        else:
+            action = act(np.array(obs)[None], stochastic=stochastic)[0]
+            obs, rew, done, info = env.step(action)
+
+        if done: # Not end of an episode
             obs = env.reset()
-            print("Attack success:", attack_success/step)
-            print("Detection:", detection/ (attack_success + 0.001))
-            print("False Positive:", fp/step)
 
-            fp_pred_true_diff = np.array(fp_pred_true_diff)
-            print("False Positive Q Diff Max:", np.max(fp_pred_true_diff))
-            print("False Positive Q Diff Min:", np.min(fp_pred_true_diff))
-            print("False Positive Q Diff Avg:", np.mean(fp_pred_true_diff))
-
-            detect_pred_adv_diff = np.array(detect_pred_adv_diff)
-            print("Detect Q Diff Max:", np.max(detect_pred_adv_diff))
-            print("Detect Positive Q Diff Min:", np.min(detect_pred_adv_diff))
-            print("Detect Positive Q Diff Avg:", np.mean(detect_pred_adv_diff))
-
-
+        # End of an episode
         if len(info["rewards"]) > num_episodes:
             if len(info["rewards"]) == 1 and video_recorder.enabled:
                 # save video of first episode
@@ -165,20 +149,33 @@ def play(env, acts, stochastic, video_path, attack=None, q_func=None):
                 video_recorder.enabled = False
             print(info["rewards"][-1])
             num_episodes = len(info["rewards"])
+
+            if attack != None:
+                print("Attack success:", attack_success/step)
+                print("Detection:", detection/ (attack_success + 0.001))
+                print("False Positive:", fp/step)
+
+                fp_pred_true_diff = np.array(fp_pred_true_diff)
+                print("False Positive Q Diff Max:", np.max(fp_pred_true_diff))
+                print("False Positive Q Diff Min:", np.min(fp_pred_true_diff))
+                print("False Positive Q Diff Avg:", np.mean(fp_pred_true_diff))
+
+                detect_pred_adv_diff = np.array(detect_pred_adv_diff)
+                print("Detect Q Diff Max:", np.max(detect_pred_adv_diff))
+                print("Detect Positive Q Diff Min:", np.min(detect_pred_adv_diff))
+                print("Detect Positive Q Diff Avg:", np.mean(detect_pred_adv_diff))
+
             step = 0
-            exit()
-
-
 
 if __name__ == '__main__':
     with U.make_session(4) as sess:
         args = parse_args()
         env = make_env(args.env)
         q_func = dueling_model if args.dueling else model
-        act, adv_act = deepq.build_act(
+        acts = deepq.build_act(
             make_obs_ph=lambda name: U.Uint8Input(env.observation_space.shape, name=name),
             q_func=q_func,
             num_actions=env.action_space.n,
             attack=args.attack)
         U.load_state(os.path.join(args.model_dir, "saved"))
-        play(env, [act, adv_act], args.stochastic, args.video, args.attack, q_func=q_func)
+        play(env, acts, args.stochastic, args.video, args.attack, q_func=q_func)

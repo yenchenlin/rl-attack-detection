@@ -129,17 +129,24 @@ def build_act(make_obs_ph, q_func, num_actions, attack=None, scope="deepq", reus
         output_actions = tf.cond(stochastic_ph, lambda: stochastic_actions, lambda: deterministic_actions)
         update_eps_expr = eps.assign(tf.cond(update_eps_ph >= 0, lambda: update_eps_ph, lambda: eps))
 
-        act = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph],
-                         outputs=q_values,
-                         givens={update_eps_ph: -1.0, stochastic_ph: True},
-                         updates=[update_eps_expr])
+        if attack != None:
+            act = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph],
+                             outputs=q_values,
+                             givens={update_eps_ph: -1.0, stochastic_ph: True},
+                             updates=[update_eps_expr])
 
-        adv_act = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph],
-                         outputs=adv_q_values,
-                         givens={update_eps_ph: -1.0, stochastic_ph: True},
-                         updates=[update_eps_expr])
+            adv_act = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph],
+                             outputs=adv_q_values,
+                             givens={update_eps_ph: -1.0, stochastic_ph: True},
+                             updates=[update_eps_expr])
 
-        return act, adv_act
+            return [act, adv_act]
+        else:
+            act = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph],
+                             outputs=output_actions,
+                             givens={update_eps_ph: -1.0, stochastic_ph: True},
+                             updates=[update_eps_expr])
+            return [act]
 
 
 def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=None, gamma=1.0, double_q=True, scope="deepq", reuse=None):
