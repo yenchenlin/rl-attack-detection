@@ -25,6 +25,7 @@ def parse_args():
     parser.add_argument("--env", type=str, required=True, help="name of the game")
     parser.add_argument("--model-dir", type=str, default=None, help="load model from this directory. ")
     parser.add_argument("--video", type=str, default=None, help="Path to mp4 file where the video of first episode will be recorded.")
+    parser.add_argument("--n_episodes", type=int, default=200, help="Number of episodes to collect.")
     boolean_flag(parser, "stochastic", default=True, help="whether or not to use stochastic actions according to models eps value")
     boolean_flag(parser, "dueling", default=False, help="whether or not to use dueling model")
 
@@ -38,14 +39,13 @@ def make_env(game_name):
     return env
 
 
-def play(env, act, stochastic, video_path):
+def play(env, act, stochastic, video_path, game_name, n_episodes=200):
     # Collector
-    directory = 'PongNoFrameskip-v4'
+    directory = game_name + '_episodes'
+    os.makedirs(directory, exist_ok=True)
     preprocess_func = lambda x: x
     n_episodes = 200
     episode = 0
-    if not os.path.exists(directory):
-        os.makedirs(directory)
     collector = EpisodeCollector(path=os.path.join(directory, '%04d.tfrecords' % (episode)), preprocess_func=preprocess_func, skip=0)
 
     timestep = 0
@@ -70,14 +70,6 @@ def play(env, act, stochastic, video_path):
             obs = env.reset()
             timestep = 0
 
-            collector.close()
-            episode += 1
-            print("Episode: {}".format(episode))
-            if episode == n_episodes:
-                break
-            collector = EpisodeCollector(path=os.path.join('PongNoFrameskip-v4', '%04d.tfrecords' % (episode)),
-                        preprocess_func=preprocess_func, skip=0)
-
         if len(info["rewards"]) > num_episodes:
             if len(info["rewards"]) == 1 and video_recorder.enabled:
             # save video of first episode
@@ -86,6 +78,15 @@ def play(env, act, stochastic, video_path):
                 video_recorder.enabled = False
             print(info["rewards"][-1])
             num_episodes = len(info["rewards"])
+
+            collector.close()
+            episode = num_episodes
+            print("Episode: {}".format(episode))
+            if episode == n_episodes:
+                break
+            collector = EpisodeCollector(path=os.path.join(directory, '%04d.tfrecords' % (episode)),
+                        preprocess_func=preprocess_func, skip=0)
+
 
 
 if __name__ == '__main__':
@@ -97,4 +98,4 @@ if __name__ == '__main__':
             q_func=dueling_model if args.dueling else model,
             num_actions=env.action_space.n)
         U.load_state(os.path.join(args.model_dir, "saved"))
-        play(env, act, args.stochastic, args.video)
+        play(env, act, args.stochastic, args.video, args.env, n_episodes=args.n_episodes)
