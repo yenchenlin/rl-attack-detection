@@ -1,17 +1,17 @@
 #!/bin/bash -l
 #SBATCH -p long
-#SBATCH -w werbos
 #SBATCH --gres=gpu:k80:2
-#SBATCH -J MsPacman
-#SBATCH -o MsPacman.log
+#SBATCH -J Pong
+#SBATCH -o Pong.log
 
-DATA_DIR=$1
+GAME=$1
 NUM_ACT=$2
 COLOR=$3
+DATA_DIR="${GAME}_episodes"
 TRAIN="${DATA_DIR}/train"
 TEST="${DATA_DIR}/test"
 MEAN="${DATA_DIR}/mean.npy"
-LOG="models/${DATA_DIR}-${COLOR}-model"
+LOG="models/${GAME}"
 
 hostname
 echo $CUDA_VISIBLE_DEVICES
