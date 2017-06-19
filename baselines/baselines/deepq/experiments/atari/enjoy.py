@@ -4,6 +4,7 @@ import os
 import numpy as np
 import tensorflow as tf
 import cv2
+import glob
 from collections import deque
 
 from gym.monitoring import VideoRecorder
@@ -57,7 +58,13 @@ def test_gen(sess, obs, act, gt, mean, model, n_actions, step):
     return pred[0, :, :, 0]
 
 
-def play(env, acts, stochastic, video_path, attack=None, q_func=None):
+def get_newest_model(path):
+    models = glob.glob(os.path.join(path, 'model.ckpt-*.meta'))
+    newest_model = max(models, key=os.path.getctime)
+    return newest_model[:-5]
+
+
+def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None):
     act = acts[0]
     if attack != None:
         adv_act = acts[1]
@@ -81,8 +88,9 @@ def play(env, acts, stochastic, video_path, attack=None, q_func=None):
     if attack != None:
         from baselines.deepq.prediction.tfacvp.model import ActionConditionalVideoPredictionModel
         gen_dir = '/home/yclin/Workspace/rl-adversarial-attack-detection/baselines/baselines/deepq/prediction'
-        model_path = os.path.join(gen_dir, 'models/PongNoFrameskip-v4-gray-model/train/model.ckpt-1491000')
-        mean_path = os.path.join(gen_dir, 'PongNoFrameskip-v4/mean.npy')
+        # Automatically load the newest model
+        model_path = get_newest_model(os.path.join(gen_dir, 'models/{}/train'.format(game_name)))
+        mean_path = os.path.join(gen_dir, '{}_episodes/mean.npy'.format(game_name))
 
         mean = np.load(mean_path)
         with tf.variable_scope('G'):
@@ -178,4 +186,4 @@ if __name__ == '__main__':
             num_actions=env.action_space.n,
             attack=args.attack)
         U.load_state(os.path.join(args.model_dir, "saved"))
-        play(env, acts, args.stochastic, args.video, args.attack, q_func=q_func)
+        play(env, acts, args.stochastic, args.video, args.env, args.attack, q_func=q_func)
