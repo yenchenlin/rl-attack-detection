@@ -39,12 +39,11 @@ def make_env(game_name):
     return env
 
 
-def play(env, act, stochastic, video_path, game_name, n_episodes=200):
+def play(env, act, stochastic, video_path, game_name, n_episodes):
     # Collector
     directory = game_name + '_episodes'
     os.makedirs(directory, exist_ok=True)
     preprocess_func = lambda x: x
-    n_episodes = 200
     episode = 0
     collector = EpisodeCollector(path=os.path.join(directory, '%04d.tfrecords' % (episode)), preprocess_func=preprocess_func, skip=0)
 
