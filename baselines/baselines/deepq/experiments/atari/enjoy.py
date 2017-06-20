@@ -20,6 +20,8 @@ from baselines.common.atari_wrappers_deprecated import wrap_dqn
 from baselines.deepq.experiments.atari.model import model, dueling_model
 from baselines.deepq.li_attack import CarliniLi
 
+from scipy.stats import entropy
+
 
 def parse_args():
     parser = argparse.ArgumentParser("Run an already learned DQN model.")
@@ -58,6 +60,11 @@ def test_gen(sess, obs, act, gt, mean, model, n_actions, step):
     return pred[0, :, :, 0]
 
 
+def softmax(x):
+    """Compute softmax values for each sets of scores in x."""
+    return np.exp(x) / np.sum(np.exp(x), axis=0)
+
+
 def get_newest_model(path):
     models = glob.glob(os.path.join(path, 'model.ckpt-*.meta'))
     newest_model = max(models, key=os.path.getctime)
@@ -68,6 +75,7 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
     act = acts[0]
     if attack != None:
         adv_act = acts[1]
+        adv_env = acts[2]
 
     num_episodes = 0
     step = 0
@@ -79,8 +87,10 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
     sess = U.get_session()
 
     detection = 0.0
+    attack_count = 0.0
     attack_success = 0.0
     fp = 0.0
+    tp = 0.0
 
     detect_pred_adv_diff = []
     fp_pred_true_diff = []
@@ -102,12 +112,11 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
 
     while True:
         #env.unwrapped.render()
-        video_recorder.capture_frame()
+        #video_recorder.capture_frame()
         step += 1
         if attack == 'carliniL2':
             obs = (np.array(obs) - 127.5) / 255.0
             adv_obs = carliniLi.attack_single(obs, [0., 0., 0., 0., 1., 0.])
-            print(np.min(adv_obs))
             adv_obs = np.array(adv_obs) * 255.0 + 127.5
             action = act(np.array(adv_obs), stochastic=stochastic)[0]
             obs, rew, done, info = env.step(action)
@@ -117,27 +126,44 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
             adv_action = np.argmax(adv_q_values)
             q_values = act(np.array(obs)[None], stochastic=stochastic)[0]
             action = np.argmax(q_values)
-            #print(adv_action == action)
+
+            # Adversary determine whether to attack
+            is_attack = True if np.random.rand() < 0.85 else False
+            if is_attack:
+                attack_count += 1
+
+            # Decide final action and q_values
+            final_act = adv_action if is_attack else action
+            final_q_values = adv_q_values if is_attack else q_values
 
             # Defensive planning
             if step >= 4:
+                if is_attack: adv_old_obs = adv_env(np.array(old_obs)[None], stochastic=stochastic)[0] * 255.0
                 pred_obs.append(test_gen(sess, old_obs, old_action, np.array(obs), mean, model,
                     env.action_space.n, step))
                 if len(pred_obs) == 4:
+                    # Feed pred state into policy
                     pred_q_values = act(np.stack(pred_obs, axis=2)[None], stochastic=stochastic)[0]
                     pred_act = np.argmax(pred_q_values)
-                    #print("Step: {}".format(step))
-                    #print(pred_act, action, pred_act == action)
-                    if adv_action != action:
+
+                    # Attack success
+                    if adv_action != action and is_attack:
                         attack_success += 1
-                        if pred_act != adv_action and np.sum(np.abs(pred_q_values - adv_q_values)) > 0.3:
-                        #if pred_act != adv_action:
-                            detection += 1
-                            detect_pred_adv_diff.append(np.sum(np.abs(pred_q_values - adv_q_values)))
-                    if pred_act != action and np.sum(np.abs(pred_q_values - q_values)) > 0.3:
-                    #if pred_act != action:
-                        fp += 1
-                        fp_pred_true_diff.append(np.sum(np.abs(pred_q_values - q_values)))
+
+                    # Detect as attack
+                    #if pred_act != final_act and np.sum(np.abs(pred_q_values - final_q_values)) > 0.00:
+                    if np.sum(np.abs(pred_q_values - final_q_values)) > 0.1:
+                        detection += 1
+                        # False positive
+                        if not is_attack or adv_action == action:
+                            #print(entropy(pk=softmax(pred_q_values), qk=softmax(final_q_values)))
+                            fp += 1
+                            #fp_pred_true_diff.append(np.sum(np.abs(pred_q_values - q_values)))
+                        # True positive
+                        if is_attack and adv_action != action:
+                            tp += 1
+                            #detect_pred_adv_diff.append(np.sum(np.abs(pred_q_values - adv_q_values)))
+
             old_obs = np.array(obs)
             old_action = adv_action
             obs, rew, done, info = env.step(adv_action)
@@ -159,10 +185,15 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
             num_episodes = len(info["rewards"])
 
             if attack != None:
-                print("Attack success:", attack_success/step)
-                print("Detection:", detection/ (attack_success + 0.001))
-                print("False Positive:", fp/step)
+                print("Attack ratio:", attack_success/step)
+                if attack_count != 0:
+                    print("Attack success rate:", attack_success/attack_count)
+                print("Precision:", tp/(tp+fp))
+                print("False Positive:", fp/(tp+fp))
+                print("Recall:", tp/attack_success)
+                print("Step: ", step, "Number of TP: ", tp, "Number of FP:", fp)
 
+                """
                 fp_pred_true_diff = np.array(fp_pred_true_diff)
                 print("False Positive Q Diff Max:", np.max(fp_pred_true_diff))
                 print("False Positive Q Diff Min:", np.min(fp_pred_true_diff))
@@ -172,8 +203,10 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
                 print("Detect Q Diff Max:", np.max(detect_pred_adv_diff))
                 print("Detect Positive Q Diff Min:", np.min(detect_pred_adv_diff))
                 print("Detect Positive Q Diff Avg:", np.mean(detect_pred_adv_diff))
+                """
 
             step = 0
+            exit()
 
 if __name__ == '__main__':
     with U.make_session(4) as sess:
