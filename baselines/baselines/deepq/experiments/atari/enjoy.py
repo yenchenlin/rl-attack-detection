@@ -128,7 +128,7 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
             action = np.argmax(q_values)
 
             # Adversary determine whether to attack
-            is_attack = True if np.random.rand() < 0.85 else False
+            is_attack = True if np.random.rand() < 0.8 else False
             if is_attack:
                 attack_count += 1
 
@@ -138,8 +138,8 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
 
             # Defensive planning
             if step >= 4:
-                if is_attack: adv_old_obs = adv_env(np.array(old_obs)[None], stochastic=stochastic)[0] * 255.0
-                pred_obs.append(test_gen(sess, old_obs, old_action, np.array(obs), mean, model,
+                final_old_obs = adv_env(np.array(old_obs)[None], stochastic=stochastic)[0] * 255.0 if is_attack else old_obs
+                pred_obs.append(test_gen(sess, final_old_obs, old_action, np.array(obs), mean, model,
                     env.action_space.n, step))
                 if len(pred_obs) == 4:
                     # Feed pred state into policy
@@ -151,9 +151,10 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
                         attack_success += 1
 
                     # Detect as attack
-                    #if pred_act != final_act and np.sum(np.abs(pred_q_values - final_q_values)) > 0.00:
-                    if np.sum(np.abs(pred_q_values - final_q_values)) > 0.1:
+                    if pred_act != final_act and np.sum(np.abs(pred_q_values - final_q_values)) > 0.20:
+                    #if np.sum(np.abs(pred_q_values - final_q_values)) > 0.1:
                         detection += 1
+                        final_act = action
                         # False positive
                         if not is_attack or adv_action == action:
                             #print(entropy(pk=softmax(pred_q_values), qk=softmax(final_q_values)))
@@ -166,7 +167,7 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
 
             old_obs = np.array(obs)
             old_action = adv_action
-            obs, rew, done, info = env.step(adv_action)
+            obs, rew, done, info = env.step(final_act)
         else:
             action = act(np.array(obs)[None], stochastic=stochastic)[0]
             obs, rew, done, info = env.step(action)
