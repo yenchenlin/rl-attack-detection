@@ -86,11 +86,15 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
     pred_obs = deque(maxlen=4)
     sess = U.get_session()
 
+    #thresholds = [0.1, 0.2, 0.5, 1.0, 2.0, 3.0, 5.0, 8.0, 10.0, 15.0, 20.0, 25.0, 30.0, 50.0]
+    thresholds = [0.1, 0.2, 0.5, 1.0, 2.0, 3.0, 5.0, 8.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0, 70, 80, 90]
     detection = 0.0
     attack_count = 0.0
     attack_success = 0.0
-    fp = 0.0
-    tp = 0.0
+    #fp = 0.0
+    #tp = 0.0
+    fp = {key: 0 for key in thresholds}
+    tp = {key: 0 for key in thresholds}
 
     detect_pred_adv_diff = []
     fp_pred_true_diff = []
@@ -128,7 +132,7 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
             action = np.argmax(q_values)
 
             # Adversary determine whether to attack
-            is_attack = True if np.random.rand() < 0.8 else False
+            is_attack = True if np.random.rand() < 0.5 else False
             if is_attack:
                 attack_count += 1
 
@@ -151,19 +155,21 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
                         attack_success += 1
 
                     # Detect as attack
-                    if pred_act != final_act and np.sum(np.abs(pred_q_values - final_q_values)) > 0.20:
-                    #if np.sum(np.abs(pred_q_values - final_q_values)) > 0.1:
-                        detection += 1
-                        final_act = action
-                        # False positive
-                        if not is_attack or adv_action == action:
-                            #print(entropy(pk=softmax(pred_q_values), qk=softmax(final_q_values)))
-                            fp += 1
-                            #fp_pred_true_diff.append(np.sum(np.abs(pred_q_values - q_values)))
-                        # True positive
-                        if is_attack and adv_action != action:
-                            tp += 1
-                            #detect_pred_adv_diff.append(np.sum(np.abs(pred_q_values - adv_q_values)))
+                    for threshold in thresholds:
+                        if np.sum(np.abs(pred_q_values - final_q_values)) > threshold:
+                        #if np.sum(np.abs(pred_q_values - final_q_values)) > 0.1:
+                            #final_act = action
+                            # False positive
+                            #if not is_attack or adv_action == action:
+                            if not is_attack:
+                                #print(entropy(pk=softmax(pred_q_values), qk=softmax(final_q_values)))
+                                fp[threshold] += 1
+                                #fp_pred_true_diff.append(np.sum(np.abs(pred_q_values - q_values)))
+                            # True positive
+                            #if is_attack and adv_action != action:
+                            if is_attack and adv_action != action:
+                                tp[threshold] += 1
+                                #detect_pred_adv_diff.append(np.sum(np.abs(pred_q_values - adv_q_values)))
 
             old_obs = np.array(obs)
             old_action = adv_action
@@ -189,10 +195,18 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
                 print("Attack ratio:", attack_success/step)
                 if attack_count != 0:
                     print("Attack success rate:", attack_success/attack_count)
-                print("Precision:", tp/(tp+fp))
-                print("False Positive:", fp/(tp+fp))
-                print("Recall:", tp/attack_success)
-                print("Step: ", step, "Number of TP: ", tp, "Number of FP:", fp)
+                    #print("Precision:", tp/(tp+fp))
+                    #print("False Positive:", fp/(tp+fp))
+                    #print("Recall:", tp/attack_success)
+                    #print("Step: ", step, "Number of TP: ", tp, "Number of FP:", fp)
+
+
+                for t in thresholds:
+                    print(t)
+                    print("Precision:", tp[t]/(tp[t]+fp[t]))
+                    print("False Positive:", fp[t]/(tp[t]+fp[t]))
+                    print("Recall:", tp[t]/attack_success)
+                    print("Step: ", step, "Number of TP: ", tp[t], "Number of FP:", fp[t])
 
                 """
                 fp_pred_true_diff = np.array(fp_pred_true_diff)
