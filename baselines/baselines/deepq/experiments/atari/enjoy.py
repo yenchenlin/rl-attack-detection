@@ -21,6 +21,7 @@ from baselines.deepq.experiments.atari.model import model, dueling_model
 from baselines.deepq.li_attack import CarliniLi
 
 from scipy.stats import entropy
+from baselines.deepq.experiments.atari.squeeze import median_filter_np, binary_filter_np
 
 
 def parse_args():
@@ -86,8 +87,8 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
     pred_obs = deque(maxlen=4)
     sess = U.get_session()
 
-    #thresholds = [0.1, 0.2, 0.5, 1.0, 2.0, 3.0, 5.0, 8.0, 10.0, 15.0, 20.0, 25.0, 30.0, 50.0]
-    thresholds = [0.1, 0.2, 0.5, 1.0, 2.0, 3.0, 5.0, 8.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0, 70, 80, 90]
+    thresholds = [0.1, 0.2, 0.5, 0.6, 0.7, 0.8, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 13.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0, 70, 80, 90]
+    #thresholds = [0.0]
     detection = 0.0
     attack_count = 0.0
     attack_success = 0.0
@@ -96,8 +97,10 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
     fp = {key: 0 for key in thresholds}
     tp = {key: 0 for key in thresholds}
 
-    detect_pred_adv_diff = []
-    fp_pred_true_diff = []
+    filter_size = 2
+    fp_sq = {key: 0 for key in thresholds}
+    tp_sq = {key: 0 for key in thresholds}
+
 
     if attack != None:
         from baselines.deepq.prediction.tfacvp.model import ActionConditionalVideoPredictionModel
@@ -123,6 +126,7 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
             adv_obs = carliniLi.attack_single(obs, [0., 0., 0., 0., 1., 0.])
             adv_obs = np.array(adv_obs) * 255.0 + 127.5
             action = act(np.array(adv_obs), stochastic=stochastic)[0]
+            print(action)
             obs, rew, done, info = env.step(action)
         elif attack == 'fgsm':
             # np.array(obs)[None]: (1, 84, 84, 4)
@@ -140,6 +144,12 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
             final_act = adv_action if is_attack else action
             final_q_values = adv_q_values if is_attack else q_values
 
+            # Get squeezed input
+            adv_obs = adv_env(np.array(obs)[None], stochastic=stochastic)[0] * 255.0
+            final_obs = adv_obs if is_attack else np.array(obs)
+            sq_final_obs = median_filter_np(final_obs, filter_size)
+            sq_final_q_values = act(np.array(sq_final_obs)[None], stochastic=stochastic)[0]
+
             # Defensive planning
             if step >= 4:
                 final_old_obs = adv_env(np.array(old_obs)[None], stochastic=stochastic)[0] * 255.0 if is_attack else old_obs
@@ -156,20 +166,27 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
 
                     # Detect as attack
                     for threshold in thresholds:
+                        # Feature squeezer
+                        if np.sum(np.abs(sq_final_q_values - final_q_values)) > threshold:
+                            #final_act = np.argmax(sq_final_q_values)
+                            if is_attack:
+                                tp_sq[threshold] += 1
+                            else:
+                                fp_sq[threshold] += 1
+
+                        # Ours
                         if np.sum(np.abs(pred_q_values - final_q_values)) > threshold:
                         #if np.sum(np.abs(pred_q_values - final_q_values)) > 0.1:
-                            #final_act = action
+                            final_act = action
                             # False positive
                             #if not is_attack or adv_action == action:
                             if not is_attack:
                                 #print(entropy(pk=softmax(pred_q_values), qk=softmax(final_q_values)))
                                 fp[threshold] += 1
-                                #fp_pred_true_diff.append(np.sum(np.abs(pred_q_values - q_values)))
                             # True positive
                             #if is_attack and adv_action != action:
                             if is_attack and adv_action != action:
                                 tp[threshold] += 1
-                                #detect_pred_adv_diff.append(np.sum(np.abs(pred_q_values - adv_q_values)))
 
             old_obs = np.array(obs)
             old_action = adv_action
@@ -200,7 +217,6 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
                     #print("Recall:", tp/attack_success)
                     #print("Step: ", step, "Number of TP: ", tp, "Number of FP:", fp)
 
-
                 for t in thresholds:
                     print(t)
                     print("Precision:", tp[t]/(tp[t]+fp[t]))
@@ -209,17 +225,14 @@ def play(env, acts, stochastic, video_path, game_name, attack=None, q_func=None)
                     print("Step: ", step, "Number of TP: ", tp[t], "Number of FP:", fp[t])
 
                 """
-                fp_pred_true_diff = np.array(fp_pred_true_diff)
-                print("False Positive Q Diff Max:", np.max(fp_pred_true_diff))
-                print("False Positive Q Diff Min:", np.min(fp_pred_true_diff))
-                print("False Positive Q Diff Avg:", np.mean(fp_pred_true_diff))
-
-                detect_pred_adv_diff = np.array(detect_pred_adv_diff)
-                print("Detect Q Diff Max:", np.max(detect_pred_adv_diff))
-                print("Detect Positive Q Diff Min:", np.min(detect_pred_adv_diff))
-                print("Detect Positive Q Diff Avg:", np.mean(detect_pred_adv_diff))
+                print("Feature Squeezer")
+                for t in thresholds:
+                    print(t)
+                    print("Precision:", tp_sq[t]/(tp_sq[t]+fp_sq[t]))
+                    print("False Positive:", fp_sq[t]/(tp_sq[t]+fp_sq[t]))
+                    print("Recall:", tp_sq[t]/attack_success)
+                    print("Step: ", step, "Number of TP: ", tp_sq[t], "Number of FP:", fp_sq[t])
                 """
-
             step = 0
             exit()
 
