@@ -115,7 +115,7 @@ def build_act(make_obs_ph, q_func, num_actions, attack=None, scope="deepq", reus
         if attack == 'fgsm':
             q_softmax = tf.nn.softmax(q_values)
             # XXX Check max val is 255 or 1
-            adv_observations = fgm(observations_ph.get(), q_softmax, y=None, eps=0.004, clip_min=0, clip_max=1)
+            adv_observations = fgm(observations_ph.get(), q_softmax, y=None, eps=0.003, clip_min=0, clip_max=1)
             adv_q_values = q_func(adv_observations, num_actions, scope="q_func", reuse=True)
             deterministic_actions = tf.argmax(adv_q_values, axis=1)
         else:
@@ -145,7 +145,8 @@ def build_act(make_obs_ph, q_func, num_actions, attack=None, scope="deepq", reus
                              givens={update_eps_ph: -1.0, stochastic_ph: True},
                              updates=[update_eps_expr])
 
-            return [act, adv_act, adv_env]
+            if attack == 'fgsm':
+                return [act, adv_act, adv_env]
         else:
             act = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph],
                              outputs=output_actions,
