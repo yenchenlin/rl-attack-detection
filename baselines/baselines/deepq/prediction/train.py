@@ -66,7 +66,9 @@ def main(args):
                 init_op=init,
                 graph=graph,
                 summary_op=train_summary_op,
-                global_step=global_step_var)
+                global_step=global_step_var,
+                saver=tf.train.Saver(max_to_keep=None),
+                save_model_secs=1200)
 
         # Start session
         with sv.managed_session(config=config) as sess:
@@ -99,6 +101,3 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     main(args)
-
-
-
