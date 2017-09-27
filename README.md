@@ -5,7 +5,7 @@
 
 ### Dependencies
 - Python 3
-- cleverhans
+- cleverhans v2.0.0
 
 ```
 pip install -e git+http://github.com/tensorflow/cleverhans.git#egg=cleverhans
@@ -21,18 +21,24 @@ pip install -e .
 
 
 ### Example
-Here I'll use game Freeway as an example to demonstrate how to run the code.
+Here I'll use Atari game Freeway as an example to demonstrate how to run the code.
+
+Let's start by switch to the home directory:
+
+```
+cd rl-attack-detection
+```
 
 **1. Download pre-trained agent**
 
-Download the repository contains pre-trained DQN agents for Freeway [here](https://drive.google.com/open?id=0B50cbskLVq-eRzBtNktCVE1SSms) to `rl-attack-detection/pre-trained-agents/`.
+Download [this repository](https://drive.google.com/open?id=0B50cbskLVq-eRzBtNktCVE1SSms) which contains pre-trained DQN agents for Freeway to `./atari-pre-trained-agents/`.
 
 **2. Run pre-trained agent**
 
 Test the performance of the pre-trained agent:
 
 ```
-python -m baselines.deepq.experiments.atari.enjoy --model-dir ./pre-trained-agents/Freeway --env Freeway
+python -m baselines.deepq.experiments.atari.enjoy --model-dir ./atari-pre-trained-agents/Freeway --env Freeway
 ```
 
 For game Freeway, you should see output similar to follows:
@@ -52,5 +58,26 @@ Use adversarial example crafted by FGSM to attack deep RL agent:
 python -m baselines.deepq.experiments.atari.enjoy --model-dir ./pre-trained-agents/Freeway --env Freeway --attack fgsm
 ```
 
-**3. Perform adversarial attack**
+**Other attacks:** there are currently 3 attacks available: `fgsm`, `iterative`, `cwl2`.
 
+
+You should see output similar to follows:
+
+```
+0.0
+0.0
+0.0
+...
+```
+
+which means that the agent is fooled by adversary and went crazy!
+
+**4. Use visual foresight as defense**
+
+Use visual foresight to protect deep RL agent:
+
+```
+python -m baselines.deepq.experiments.atari.enjoy --model-dir ./pre-trained-agents/Freeway --env Freeway --attack fgsm --defense foresight
+```
+
+Now, you should see similar outputs to **step. 2**, which means that now it works again.
