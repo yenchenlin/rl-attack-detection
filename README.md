@@ -81,4 +81,4 @@ Use visual foresight to protect deep RL agent:
 python -m baselines.deepq.experiments.atari.enjoy --model-dir ./pre-trained-agents/Freeway --env Freeway --attack fgsm --defense foresight
 ```
 
-Now, you should see similar outputs to **step. 2**, which means that now it works again.
+Now, you should see similar outputs to **step. 2**, which means that our agents work well again.
