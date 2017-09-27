@@ -15,6 +15,8 @@ from baselines.common.misc_util import (
 from baselines.common.atari_wrappers_deprecated import wrap_dqn
 from baselines.deepq.experiments.atari.model import model, dueling_model
 import tensorflow as tf
+import cv2
+from collections import deque
 
 
 def parse_args():
@@ -38,43 +40,77 @@ def make_env(game_name):
     return env
 
 
-def load_visual_foresight_module(game_name):
+def load_visual_foresight(game_name):
     sess = U.get_session()
     from baselines.deepq.prediction.tfacvp.model import ActionConditionalVideoPredictionModel
     gen_dir = './atari-visual-foresight/'
     model_path = os.path.join(gen_dir, '{}/model.ckpt'.format(game_name))
     mean_path = os.path.join(gen_dir, '{}/mean.npy'.format(game_name))
-    mean = np.load(mean_path)
+    game_screen_mean = np.load(mean_path)
     with tf.variable_scope('G'):
         foresight = ActionConditionalVideoPredictionModel(num_act=env.action_space.n, num_channel=1, is_train=False)
         foresight.restore(sess, model_path, 'G')
-    return foresight
+    return foresight, game_screen_mean
+
+
+def foresee(sess, obs, act, gt, mean, model, n_actions, step):
+    onehot_act = np.zeros((1, n_actions))
+    onehot_act[0, act] = 1
+    obs = obs - mean[None]
+    obs = obs * 1/255.0
+    pred_frame = model.predict(sess, obs, onehot_act)[0]
+    pred_frame = pred_frame* 255.0
+    pred_frame = pred_frame + mean[None]
+    #print(gt[:, :, -1].shape, pred_frame.shape)
+    #print(np.sum(gt[:, :, -1][:, :, np.newaxis] - pred_frame[0, :, :, :]))
+    #cv2.imwrite('./tmp/gt_{}.png'.format(step), gt[:, :, -1][:, :, np.newaxis])
+    #cv2.imwrite('./tmp/pred_{}.png'.format(step), pred_frame[0, :, :, :])
+    return pred_frame[0, :, :, 0]
 
 
 def play(env, act, craft_adv_obs, stochastic, video_path, game_name, attack, defense):
     if defense == 'foresight':
-        vf = load_visual_foresight_module(game_name)
+        vf, game_screen_mean = load_visual_foresight(game_name)
+        pred_obs = deque(maxlen=4)
 
     num_episodes = 0
     video_recorder = None
     video_recorder = VideoRecorder(
         env, video_path, enabled=video_path is not None)
 
+    t = 0
     obs = env.reset()
     while True:
+        #print(t)
         #env.unwrapped.render()
         video_recorder.capture_frame()
 
+		# Attack
         if craft_adv_obs != None:
-            # craft adv. examples
+            # Craft adv. examples
             adv_obs = craft_adv_obs(np.array(obs)[None], stochastic=stochastic)[0]
             action = act(np.array(adv_obs)[None], stochastic=stochastic)[0]
         else:
-            # normal
+            # Normal
             action = act(np.array(obs)[None], stochastic=stochastic)[0]
 
+		# Defense
+        if t > 4 and defense == 'foresight':
+            pred_obs.append(
+                foresee(U.get_session(), old_obs, old_action, np.array(obs), game_screen_mean, vf,
+                        env.action_space.n, t)
+            )
+            if len(pred_obs) == 4:
+                action = act(np.stack(pred_obs, axis=2)[None], stochastic=stochastic)[0]
+
+        old_obs = obs
+        old_action = action
+
+        # RL loop
         obs, rew, done, info = env.step(action)
+        t += 1
         if done:
+            t = 0
             obs = env.reset()
         if len(info["rewards"]) > num_episodes:
             if len(info["rewards"]) == 1 and video_recorder.enabled:
