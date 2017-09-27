@@ -84,7 +84,7 @@ def play(env, act, craft_adv_obs, stochastic, video_path, game_name, attack, def
         #env.unwrapped.render()
         video_recorder.capture_frame()
 
-		# Attack
+	# Attack
         if craft_adv_obs != None:
             # Craft adv. examples
             adv_obs = craft_adv_obs(np.array(obs)[None], stochastic=stochastic)[0]
@@ -93,7 +93,7 @@ def play(env, act, craft_adv_obs, stochastic, video_path, game_name, attack, def
             # Normal
             action = act(np.array(obs)[None], stochastic=stochastic)[0]
 
-		# Defense
+	# Defense
         if t > 4 and defense == 'foresight':
             pred_obs.append(
                 foresee(U.get_session(), old_obs, old_action, np.array(obs), game_screen_mean, vf,
