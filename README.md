@@ -49,6 +49,7 @@ For game Freeway, you should see output similar to follows:
 28.0
 ...
 ```
+This means that our agent is now a master of the game!
 
 **3. Perform adversarial attack**
 
