@@ -14,6 +14,7 @@ from baselines.common.misc_util import (
 )
 from baselines.common.atari_wrappers_deprecated import wrap_dqn
 from baselines.deepq.experiments.atari.model import model, dueling_model
+import tensorflow as tf
 
 
 def parse_args():
@@ -25,6 +26,7 @@ def parse_args():
     boolean_flag(parser, "stochastic", default=True, help="whether or not to use stochastic actions according to models eps value")
     boolean_flag(parser, "dueling", default=False, help="whether or not to use dueling model")
     parser.add_argument("--attack", type=str, default=None, help="Method to attack the model.")
+    parser.add_argument("--defense", type=str, default=None, help="Method to defend the attack.")
 
     return parser.parse_args()
 
@@ -36,24 +38,27 @@ def make_env(game_name):
     return env
 
 
-def play(env, act, stochastic, video_path):
+def load_visual_foresight_module(game_name):
+    sess = U.get_session()
+    from baselines.deepq.prediction.tfacvp.model import ActionConditionalVideoPredictionModel
+    gen_dir = './atari-visual-foresight/'
+    model_path = os.path.join(gen_dir, '{}/model.ckpt'.format(game_name))
+    mean_path = os.path.join(gen_dir, '{}/mean.npy'.format(game_name))
+    mean = np.load(mean_path)
+    with tf.variable_scope('G'):
+        foresight = ActionConditionalVideoPredictionModel(num_act=env.action_space.n, num_channel=1, is_train=False)
+        foresight.restore(sess, model_path, 'G')
+    return foresight
+
+
+def play(env, act, stochastic, video_path, game_name, defense):
+    if defense == 'foresight':
+        vf = load_visual_foresight_module(game_name)
+
     num_episodes = 0
     video_recorder = None
     video_recorder = VideoRecorder(
         env, video_path, enabled=video_path is not None)
-
-    #if attack != None:
-    #    from baselines.deepq.prediction.tfacvp.model import ActionConditionalVideoPredictionModel
-        #gen_dir = './baselines/deepq/prediction'
-        """
-        model_path = get_newest_model(os.path.join(gen_dir, 'models/{}/train'.format(game_name)))
-        mean_path = os.path.join(gen_dir, '{}_episodes/mean.npy'.format(game_name))
-        mean = np.load(mean_path)
-        with tf.variable_scope('G'):
-            model = ActionConditionalVideoPredictionModel(num_act=env.action_space.n, num_channel=1, is_train=False)
-            model.restore(sess, model_path, 'G')
-        """
-
 
     obs = env.reset()
     while True:
@@ -83,4 +88,4 @@ if __name__ == '__main__':
             num_actions=env.action_space.n,
             attack=args.attack)
         U.load_state(os.path.join(args.model_dir, "saved"))
-        play(env, act, args.stochastic, args.video)
+        play(env, act, args.stochastic, args.video, args.env, args.defense)
