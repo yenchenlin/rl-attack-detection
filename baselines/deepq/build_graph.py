@@ -69,11 +69,11 @@ The functions in this file can are used to create the following functions:
 """
 import tensorflow as tf
 import baselines.common.tf_util as U
-from cleverhans.attacks import FastGradientMethod, BasicIterativeMethod
+from cleverhans.attacks import FastGradientMethod, BasicIterativeMethod, CarliniWagnerL2
 from cleverhans.model import CallableModelWrapper
 
 
-def build_act(make_obs_ph, q_func, num_actions, attack=None, scope="deepq", reuse=None):
+def build_act(make_obs_ph, q_func, num_actions, attack=None, scope="deepq", reuse=None, model_path=''):
     """Creates the act function:
 
     Parameters
@@ -125,8 +125,11 @@ def build_act(make_obs_ph, q_func, num_actions, attack=None, scope="deepq", reus
                          givens={update_eps_ph: -1.0, stochastic_ph: True},
                          updates=[update_eps_expr])
 
-        if attack != None:
+        # Load model before attacks graph construction so that TF won't
+        # complain can't load parameters for attack
+        U.load_state(model_path)
 
+        if attack != None:
             if attack == 'fgsm':
                 def wrapper(x):
                     return q_func(x, num_actions, scope="q_func", reuse=True, concat_softmax=True)
@@ -139,6 +142,17 @@ def build_act(make_obs_ph, q_func, num_actions, attack=None, scope="deepq", reus
                 adversary = BasicIterativeMethod(CallableModelWrapper(wrapper, 'probs'), sess=U.get_session())
                 adv_observations = adversary.generate(observations_ph.get(), eps=1.0/255.0,
                                                       clip_min=0, clip_max=1.0) * 255.0
+            elif attack == 'cwl2':
+                def wrapper(x):
+                    return q_func(x, num_actions, scope="q_func", reuse=True)
+                adversary = CarliniWagnerL2(CallableModelWrapper(wrapper, 'logits'), sess=U.get_session())
+                cw_params = {'binary_search_steps': 1,
+                             'max_iterations': 100,
+                             'learning_rate': 0.1,
+                             'initial_const': 10,
+                             'clip_min': 0,
+                             'clip_max': 1.0}
+                adv_observations = adversary.generate(observations_ph.get(), **cw_params) * 255.0
 
             craft_adv_obs = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph],
                             outputs=adv_observations,

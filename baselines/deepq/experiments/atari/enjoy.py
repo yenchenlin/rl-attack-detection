@@ -81,7 +81,6 @@ def play(env, act, craft_adv_obs, stochastic, video_path, game_name, attack, def
     t = 0
     obs = env.reset()
     while True:
-        #print(t)
         #env.unwrapped.render()
         video_recorder.capture_frame()
 
@@ -126,10 +125,12 @@ if __name__ == '__main__':
     with U.make_session(4) as sess:
         args = parse_args()
         env = make_env(args.env)
+        # Build graph and load agents
         act, craft_adv_obs = deepq.build_act(
             make_obs_ph=lambda name: U.Uint8Input(env.observation_space.shape, name=name),
             q_func=dueling_model if args.dueling else model,
             num_actions=env.action_space.n,
-            attack=args.attack)
-        U.load_state(os.path.join(args.model_dir, "saved"))
+            attack=args.attack,
+            model_path=os.path.join(args.model_dir, "saved")
+        )
         play(env, act, craft_adv_obs, args.stochastic, args.video, args.env, args.attack, args.defense)
