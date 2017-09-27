@@ -3,7 +3,7 @@
 **DISCLAIMER**: This repository is a modified version of [openai/baselines](https://github.com/openai/gym).
 
 
-### Dependencies
+## Dependencies
 - Python 3
 - cleverhans v2.0.0
 
@@ -20,7 +20,7 @@ pip install -e .
 ```
 
 
-### Example
+## Example
 Here I'll use Atari game Freeway as an example to demonstrate how to run the code.
 
 Let's start by switch to the home directory:
