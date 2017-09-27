@@ -59,7 +59,7 @@ Use adversarial example crafted by FGSM to attack deep RL agent:
 python -m baselines.deepq.experiments.atari.enjoy --model-dir ./pre-trained-agents/Freeway --env Freeway --attack fgsm
 ```
 
-**Other attacks:** argument for `--attack` can be - [`fgsm`, `iterative`, `cwl2`].
+**Other attacks:** argument for `--attack` can be `fgsm`, `iterative`, `cwl2`.
 
 
 You should see output similar to follows:
