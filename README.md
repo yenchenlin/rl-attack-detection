@@ -83,3 +83,7 @@ python -m baselines.deepq.experiments.atari.enjoy --model-dir ./pre-trained-agen
 ```
 
 Now, you should see similar outputs to **step. 2**, which means that our agents work well again.
+
+## Add More Attacks
+To use new attack methods, you can add the attack code [here](https://github.com/yenchenlin/rl-attack-detection/blob/master/baselines/deepq/build_graph.py#L156).
+Generally, attack methods that follow the interface of [cleverhans](https://github.com/tensorflow/cleverhans) can be added within few lines.
