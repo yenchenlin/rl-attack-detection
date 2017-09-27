@@ -75,8 +75,9 @@ You should see output similar to follows:
 which means that the agent is fooled by adversary and went crazy!
 
 **4. Use visual foresight as defense**
+To protect the agent, first download [this repository](https://drive.google.com/drive/folders/0B50cbskLVq-eTGxqNWtkSGJsRzQ) which contains pre-trained visual foresight module for Freeway to `./atari-visual-foresight/`.
 
-Use visual foresight to protect deep RL agent:
+Then, we can use visual foresight to protect deep RL agent:
 
 ```
 python -m baselines.deepq.experiments.atari.enjoy --model-dir ./pre-trained-agents/Freeway --env Freeway --attack fgsm --defense foresight
