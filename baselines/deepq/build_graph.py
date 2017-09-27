@@ -69,7 +69,7 @@ The functions in this file can are used to create the following functions:
 """
 import tensorflow as tf
 import baselines.common.tf_util as U
-from cleverhans.attacks import FastGradientMethod
+from cleverhans.attacks import FastGradientMethod, BasicIterativeMethod
 from cleverhans.model import CallableModelWrapper
 
 
@@ -125,12 +125,20 @@ def build_act(make_obs_ph, q_func, num_actions, attack=None, scope="deepq", reus
                          givens={update_eps_ph: -1.0, stochastic_ph: True},
                          updates=[update_eps_expr])
 
-        if attack == 'fgsm':
-            def wrapper(x):
-                return q_func(x, num_actions, scope="q_func", reuse=True, concat_softmax=True)
-            fgsm = FastGradientMethod(CallableModelWrapper(wrapper, 'probs'), sess=U.get_session())
-            adv_observations = fgsm.generate(observations_ph.get(), eps=1.0/255.0,
-                                             clip_min=0, clip_max=1.0) * 255.0
+        if attack != None:
+
+            if attack == 'fgsm':
+                def wrapper(x):
+                    return q_func(x, num_actions, scope="q_func", reuse=True, concat_softmax=True)
+                adversary = FastGradientMethod(CallableModelWrapper(wrapper, 'probs'), sess=U.get_session())
+                adv_observations = adversary.generate(observations_ph.get(), eps=1.0/255.0,
+                                                      clip_min=0, clip_max=1.0) * 255.0
+            elif attack == 'iterative':
+                def wrapper(x):
+                    return q_func(x, num_actions, scope="q_func", reuse=True, concat_softmax=True)
+                adversary = BasicIterativeMethod(CallableModelWrapper(wrapper, 'probs'), sess=U.get_session())
+                adv_observations = adversary.generate(observations_ph.get(), eps=1.0/255.0,
+                                                      clip_min=0, clip_max=1.0) * 255.0
 
             craft_adv_obs = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph],
                             outputs=adv_observations,
