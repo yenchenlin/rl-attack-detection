@@ -69,7 +69,8 @@ The functions in this file can are used to create the following functions:
 """
 import tensorflow as tf
 import baselines.common.tf_util as U
-from cleverhans.attacks_tf import fgm
+from cleverhans.attacks import FastGradientMethod
+from cleverhans.model import CallableModelWrapper
 
 
 def build_act(make_obs_ph, q_func, num_actions, attack=None, scope="deepq", reuse=None):
@@ -109,19 +110,8 @@ def build_act(make_obs_ph, q_func, num_actions, attack=None, scope="deepq", reus
 
         eps = tf.get_variable("eps", (), initializer=tf.constant_initializer(0))
 
-        q_values = q_func(observations_ph.get(), num_actions, scope="q_func")
-
-        if attack == None:
-            deterministic_actions = tf.argmax(q_values, axis=1)
-        else:
-            q_softmax = tf.nn.softmax(q_values)
-            if attack == 'fgsm':
-                # XXX Check max val is 255 or 1
-                adv_observations = fgm(observations_ph.get(), q_softmax, y=None, eps=0.3, 
-                        clip_min=0, clip_max=255)
-                adv_q_values = q_func(adv_observations, num_actions, scope="q_func", reuse=True)
-                deterministic_actions = tf.argmax(adv_q_values, axis=1)
-
+        q_values = q_func(observations_ph.get(), num_actions, scope="q_func", concat_softmax=True)
+        deterministic_actions = tf.argmax(q_values, axis=1)
         batch_size = tf.shape(observations_ph.get())[0]
         random_actions = tf.random_uniform(tf.stack([batch_size]), minval=0, maxval=num_actions, dtype=tf.int64)
         chose_random = tf.random_uniform(tf.stack([batch_size]), minval=0, maxval=1, dtype=tf.float32) < eps
@@ -134,7 +124,23 @@ def build_act(make_obs_ph, q_func, num_actions, attack=None, scope="deepq", reus
                          outputs=output_actions,
                          givens={update_eps_ph: -1.0, stochastic_ph: True},
                          updates=[update_eps_expr])
-        return act
+
+        if attack == 'fgsm':
+            def wrapper(x):
+                return q_func(x, num_actions, scope="q_func", reuse=True, concat_softmax=True)
+            fgsm = FastGradientMethod(CallableModelWrapper(wrapper, 'probs'), sess=U.get_session())
+            adv_observations = fgsm.generate(observations_ph.get(), eps=1.0/255.0,
+                                             clip_min=0, clip_max=1.0) * 255.0
+
+            craft_adv_obs = U.function(inputs=[observations_ph, stochastic_ph, update_eps_ph],
+                            outputs=adv_observations,
+                            givens={update_eps_ph: -1.0, stochastic_ph: True},
+                            updates=[update_eps_expr])
+
+        if attack == None:
+            craft_adv_obs = None
+
+        return act, craft_adv_obs
 
 
 def build_train(make_obs_ph, q_func, num_actions, optimizer, grad_norm_clipping=None, gamma=1.0, double_q=True, scope="deepq", reuse=None):

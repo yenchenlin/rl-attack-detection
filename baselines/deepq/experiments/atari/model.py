@@ -2,7 +2,7 @@ import tensorflow as tf
 import tensorflow.contrib.layers as layers
 
 
-def model(img_in, num_actions, scope, reuse=False):
+def model(img_in, num_actions, scope, reuse=False, concat_softmax=False):
     """As described in https://storage.googleapis.com/deepmind-data/assets/papers/DeepMindNature14236Paper.pdf"""
     with tf.variable_scope(scope, reuse=reuse):
         out = img_in
@@ -16,6 +16,8 @@ def model(img_in, num_actions, scope, reuse=False):
         with tf.variable_scope("action_value"):
             out = layers.fully_connected(out, num_outputs=512, activation_fn=tf.nn.relu)
             out = layers.fully_connected(out, num_outputs=num_actions, activation_fn=None)
+            if concat_softmax:
+                out = tf.nn.softmax(out)
 
         return out
 

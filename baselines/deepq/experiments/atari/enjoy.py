@@ -51,7 +51,7 @@ def load_visual_foresight_module(game_name):
     return foresight
 
 
-def play(env, act, stochastic, video_path, game_name, defense):
+def play(env, act, craft_adv_obs, stochastic, video_path, game_name, attack, defense):
     if defense == 'foresight':
         vf = load_visual_foresight_module(game_name)
 
@@ -64,7 +64,15 @@ def play(env, act, stochastic, video_path, game_name, defense):
     while True:
         #env.unwrapped.render()
         video_recorder.capture_frame()
-        action = act(np.array(obs)[None], stochastic=stochastic)[0]
+
+        if craft_adv_obs != None:
+            # craft adv. examples
+            adv_obs = craft_adv_obs(np.array(obs)[None], stochastic=stochastic)[0]
+            action = act(np.array(adv_obs)[None], stochastic=stochastic)[0]
+        else:
+            # normal
+            action = act(np.array(obs)[None], stochastic=stochastic)[0]
+
         obs, rew, done, info = env.step(action)
         if done:
             obs = env.reset()
@@ -82,10 +90,10 @@ if __name__ == '__main__':
     with U.make_session(4) as sess:
         args = parse_args()
         env = make_env(args.env)
-        act = deepq.build_act(
+        act, craft_adv_obs = deepq.build_act(
             make_obs_ph=lambda name: U.Uint8Input(env.observation_space.shape, name=name),
             q_func=dueling_model if args.dueling else model,
             num_actions=env.action_space.n,
             attack=args.attack)
         U.load_state(os.path.join(args.model_dir, "saved"))
-        play(env, act, args.stochastic, args.video, args.env, args.defense)
+        play(env, act, craft_adv_obs, args.stochastic, args.video, args.env, args.attack, args.defense)
