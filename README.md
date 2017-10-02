@@ -13,7 +13,8 @@ Paper: https://drive.google.com/file/d/0B50cbskLVq-ed2F3eUw4SWQxbUU/view
   title     = {Detecting Adversarial Attacks on Neural Network Policies with Visual Foresight},
   author    = {Yen-Chen Lin and Ming-Yu Liu and Min Sun and Jia-Bin Huang},
   year      = {2017},
-  booktitle = {Arxiv}
+  journal   = {CoRR},
+}
 ```
 
 
