@@ -3,6 +3,12 @@
 ![](https://user-images.githubusercontent.com/7057863/30933455-9e86ba96-a398-11e7-87fa-d6339ad60c51.gif)
 
 **DISCLAIMER**: This repository is a modified version of [openai/baselines](https://github.com/openai/gym).
+
+### Paper
+
+Paper: https://drive.google.com/file/d/0B50cbskLVq-ed2F3eUw4SWQxbUU/view
+
+Bibtex:
 ```
 @inproceedings{LinArxiv17,
   title     = {Detecting Adversarial Attacks on Neural Network Policies with Visual Foresight},
