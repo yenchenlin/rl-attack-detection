@@ -1,4 +1,4 @@
-# rl-attack-detection
+# Detecting Adversarial Attacks on Neural Network Policies with Visual Foresight
 
 ![](https://user-images.githubusercontent.com/7057863/30933455-9e86ba96-a398-11e7-87fa-d6339ad60c51.gif)
 
