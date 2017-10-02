@@ -3,6 +3,14 @@
 ![](https://user-images.githubusercontent.com/7057863/30933455-9e86ba96-a398-11e7-87fa-d6339ad60c51.gif)
 
 **DISCLAIMER**: This repository is a modified version of [openai/baselines](https://github.com/openai/gym).
+```
+@inproceedings{LinArxiv17,
+  title     = {Detecting Adversarial Attacks on Neural Network Policies with Visual Foresight},
+  author    = {Yen-Chen Lin and Ming-Yu Liu and Min Sun and Jia-Bin Huang},
+  year      = {2017},
+  booktitle = {Arxiv}
+```
+
 
 ## Dependencies
 - Python 3
