@@ -4,7 +4,7 @@
 
 **DISCLAIMER**: This repository is a modified version of [openai/baselines](https://github.com/openai/gym).
 
-### Paper
+### Publication
 
 Paper: https://drive.google.com/file/d/0B50cbskLVq-ed2F3eUw4SWQxbUU/view
 
