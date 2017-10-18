@@ -71,7 +71,7 @@ This means that our agent is now a master of the game!
 Use adversarial example crafted by FGSM to attack deep RL agent:
 
 ```
-python -m baselines.deepq.experiments.atari.enjoy --model-dir ./pre-trained-agents/Freeway --env Freeway --attack fgsm
+python -m baselines.deepq.experiments.atari.enjoy --model-dir ./atari-pre-trained-agents/Freeway --env Freeway --attack fgsm
 ```
 
 **Other attacks:** argument passed to `--attack` can be `fgsm`, `iterative`, `cwl2`.
@@ -95,7 +95,7 @@ To protect the agent, first download [this repository](https://drive.google.com/
 Then, we can use visual foresight to protect deep RL agent:
 
 ```
-python -m baselines.deepq.experiments.atari.enjoy --model-dir ./pre-trained-agents/Freeway --env Freeway --attack fgsm --defense foresight
+python -m baselines.deepq.experiments.atari.enjoy --model-dir ./atari-pre-trained-agents/Freeway --env Freeway --attack fgsm --defense foresight
 ```
 
 Now, you should see similar outputs to **step. 2**, which means that our agents work well again.
